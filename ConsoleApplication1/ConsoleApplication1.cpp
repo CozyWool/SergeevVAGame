@@ -50,12 +50,15 @@ public:
 	{
 		money += m;
 	}
-	void setItems(string item)
+	bool setItems(string item)
 	{
 		if (items.size() < cellCount)
 		{
 			items.push_back(item);
+			return true;
 		}
+		cout << "Инвентарь заполнен" << endl;
+		return false;
 	}
 	int getX() override 
 	{
@@ -107,16 +110,37 @@ public:
 
 	void PlayerInfo() 
 	{
-		cout << "x: " << y << "\t y:" << x << endl;
+		cout << "x: " << y << "\t y:" << -x << endl;
 		cout << "Level: " << level << "\t XP: " << xp << endl;
 		cout << "Health: " << health << "\tMoney:" << money << endl;
 	}
 	void PlayerInventory()
 	{
-		for (auto& i : items)
+		for (int i = 0; i < items.size(); i++)
 		{
-			cout << i << endl;
+			cout << "#" << i + 1 << ":" << items[i] << endl;
 		}
+	}
+	void useItem()
+	{
+		int index = 0;
+		cout << "Введите номер предмета чтобы его использовать:" << endl;
+		cin >> index;
+		index--; // н-р ввели 1, а для вектора это 0 элемент
+		for (int i = 0; i < items.size(); i++)
+		{
+			if (i == index)
+			{
+				if (items[index] == "Хилка" && health <= 80)
+				{
+					cout << "Вы использовали аптечку и восстановили 20 HP" << endl;
+					health += 20;
+					items[index].erase();
+					return;
+				}
+			}
+		}
+		cout << "Невозможно использовать этот предмет" << endl;
 	}
 };
 class Enemy : public Person {
@@ -229,7 +253,43 @@ public:
 		return y;
 	}
 };
-void map(Player& p, vector<Enemy>& enemies, vector<Money>& moneys, int mapSize)
+class Item
+{
+private:
+	string name;
+	int x;
+	int y;
+	bool isActive = true;
+public:
+	Item(string name, int x, int y)
+	{
+		this->name = name;
+		this->x = x;
+		this->y = y;
+	}
+	bool getActive()
+	{
+		return isActive;
+	}
+	void setActive(bool a)
+	{
+		isActive = a;
+	}
+	string getName()
+	{
+		return name;
+	}
+	int getX()
+	{
+		return x;
+	}
+
+	int getY()
+	{
+		return y;
+	}
+};
+void map(Player& p, vector<Enemy>& enemies, vector<Money>& moneys, vector<Item>& items, int mapSize)
 {
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 	for (int i = -mapSize + p.getX(); i < mapSize + + p.getX(); i++)
@@ -241,21 +301,21 @@ void map(Player& p, vector<Enemy>& enemies, vector<Money>& moneys, int mapSize)
 				cout << "+";
 				continue;
 			}
-			bool isEnemy = false;
+			bool isSmth = false;
 			for (auto& e : enemies)
 			{
 				if (p.getX() == i && p.getY() == j && p.getX() == e.getX() && p.getY() == e.getY() && !e.isDead)
 				{
 					SetConsoleTextAttribute(hConsole, 10);
 					cout << "?";
-					isEnemy = true;
+					isSmth = true;
 					continue;
 				}
 				if (e.getX() == i && e.getY() == j && !e.isDead)
 				{
 					SetConsoleTextAttribute(hConsole, 12);
 					cout << e.getSign();
-					isEnemy = true;
+					isSmth = true;
 					continue;
 				}
 			}
@@ -272,13 +332,29 @@ void map(Player& p, vector<Enemy>& enemies, vector<Money>& moneys, int mapSize)
 				{
 					SetConsoleTextAttribute(hConsole, 14);
 					cout << "X";
-					isEnemy = true;
+					isSmth = true;
 					continue;
 				}
-				
+			}
+			for (auto& it : items)
+			{
+				if (p.getX() == it.getX() && p.getY() == it.getY() && it.getActive() )
+				{
+					SetConsoleTextAttribute(hConsole, 10);
+					cout << "Вы нашли " << it.getName() << "!" << endl;
+					p.setItems(it.getName());
+					it.setActive(false);
+				}
+				if (it.getX() == i && it.getY() == j && it.getActive())
+				{
+					SetConsoleTextAttribute(hConsole, 10);
+					cout << "!";
+					isSmth = true;
+					continue;
+				}
 			}
 			SetConsoleTextAttribute(hConsole, 15);
-			if (!isEnemy)
+			if (!isSmth)
 			{
 				//рисовка игрока
 				if (p.getX() == i && p.getY() == j)
@@ -299,13 +375,13 @@ int main()
 	//3 БАГ - Оси координат 'X' и 'Y' перемешаны друг с другом - псевдоисправлено
 	//ЗАДАЧА - ИСПРАВИТЬ БАГИ
 	srand(time(NULL));
-	Player p(0, 0, 100, 10);
+	Player p(0, 0, 50, 10);
 	p.setItems("Диск");
 	p.setItems("Пули");
 	p.setItems("Пистолет");
 	p.setItems("Нож");
-	p.setItems("Меч");
-	p.setItems("Пулёмет");
+	//p.setItems("Меч");
+	//p.setItems("Пулёмет");
 	p.PlayerInfo();
 	setlocale(LC_ALL, "RU");
 	const int size = 5;
@@ -318,6 +394,9 @@ int main()
 	Money m1(10, 2, 2);
 	Money m2(20,-2,-2);
 	vector<Money> moneys = { m0,m1,m2 };
+	Item i0("Хилка", 2, 4);
+	Item i1("Пушка", -4, 4);
+	vector<Item> items = { i0, i1 };
 
 	vector<Enemy> enemies = { e0,e1,e2,e3,e4 };
 	for (int i = 0; i < enemies.size(); i++)
@@ -363,7 +442,7 @@ int main()
 			}
 		}
 
-		map(p, enemies, moneys,5);
+		map(p, enemies, moneys, items, 5);
 
 		//плаваем
 		{
@@ -479,6 +558,7 @@ int main()
 			cout << "Текущий инвентарь:" << endl;
 			p.PlayerInventory();
 			cout << "\n7 - выйти из инвентаря" << endl;
+			cout << "8 - использовать предмет" << endl;
 			break;
 		case 7:
 			if (!inventoryActive)
@@ -488,6 +568,13 @@ int main()
 			inventoryActive = false;
 			system("cls");
 			p.PlayerInfo();
+			break;
+		case 8:
+			if (!inventoryActive)
+			{
+				break;
+			}
+			p.useItem();
 			break;
 		case 9:
 			cout << "Игра окончена" << endl;
